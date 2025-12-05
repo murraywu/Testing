@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自然拼读 Pro - V19 美化版</title>
+    <title>自然拼读 Pro - V20</title>
     <!-- 引入 Mammoth 用于解析 Word -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
     <!-- 引入圆润可爱的英文字体 Quicksand -->
@@ -15,9 +15,7 @@
             --success: #52c41a;
             --success-bg: #d9f7be;
             --danger: #ff4d4f;
-            /* 默认背景色 (会被JS覆盖) */
             --bg: #f5f7fa; 
-            /* 字体升级 */
             --font-main: 'Quicksand', 'Comic Sans MS', 'Segoe UI Rounded', sans-serif;
             --font-mono: "Consolas", "Monaco", monospace; 
         }
@@ -27,7 +25,7 @@
             background-color: var(--bg); 
             margin: 0; height: 100vh; 
             display: flex; flex-direction: column; overflow: hidden; 
-            transition: background-color 0.5s ease; /* 背景切换动画 */
+            transition: background-color 0.5s ease;
         }
 
         .view-section { display: none; height: 100%; width: 100%; flex-direction: column; }
@@ -57,21 +55,20 @@
         .stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; gap: 40px; }
         .instruction { font-size: 28px; color: #888; font-weight: 600; margin-top: 20px; opacity: 0.8; }
 
-        /* ==================== 换肤控件 ==================== */
+        /* 换肤控件 */
         .theme-selector { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; background: rgba(255,255,255,0.6); padding: 10px; border-radius: 30px; width: fit-content; margin-left: auto; margin-right: auto; }
         .color-dot { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform 0.2s; }
         .color-dot:hover { transform: scale(1.2); }
         .color-dot.active { border-color: #333; }
 
-        /* ==================== 输入框与视觉层 ==================== */
+        /* 输入框与视觉层 */
         .rich-input-wrapper { 
             position: relative; display: inline-block; margin: 0 10px; 
             background: white; 
-            border-radius: 20px; border: 5px solid #e0e0e0; /* 边框更柔和 */
+            border-radius: 20px; border: 5px solid #e0e0e0;
             box-shadow: 0 10px 25px rgba(0,0,0,0.08); cursor: text;
             transition: all 0.2s;
         }
-        /* 视觉层 */
         .visual-layer { 
             font-family: var(--font-main); font-size: 80px; font-weight: 800; 
             text-align: center; width: 100%; height: 100%; line-height: 160px; 
@@ -91,7 +88,6 @@
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         .rich-input-wrapper:focus-within { border-color: var(--primary); box-shadow: 0 0 0 6px rgba(123,97,255,0.2); }
         
-        /* 绿色反馈 */
         .rich-input-wrapper.correct { 
             border-color: var(--success) !important; 
             background-color: var(--success-bg) !important; 
@@ -105,19 +101,15 @@
         .c { color: #1890ff; } 
         @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-10px);} 75%{transform:translateX(10px);} }
         
-        /* 底部提示 */
         .enter-tip { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); color: #aaa; font-size: 16px; opacity: 0; transition: 0.3s; font-weight: bold; }
         .enter-tip.show { opacity: 1; }
         
-        /* 结算卡片 */
         .summary-card { background: white; padding: 50px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.1); animation: popIn 0.5s; }
         @keyframes popIn { from{transform:scale(0.8);opacity:0;} to{transform:scale(1);opacity:1;} }
 
-        /* 导入区 */
         .drop-zone { border: 3px dashed #ccc; padding: 60px; background: white; border-radius: 20px; margin: 20px auto; max-width: 600px; cursor: pointer; text-align: center; transition: 0.3s; }
         .drop-zone:hover { border-color: var(--primary); background: #f9f9ff; }
 
-        /* 数据管理区 */
         .data-management { margin-top: 50px; padding-top: 30px; border-top: 2px dashed #e0e0e0; text-align: center; color: #666; }
         .data-btn { background: white; border: 1px solid #ccc; padding: 10px 20px; border-radius: 20px; cursor: pointer; margin: 5px 10px; font-family: var(--font-main); font-weight: 600; color: #555; transition: all 0.2s; }
         .data-btn:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); }
@@ -132,7 +124,6 @@
             <h1 style="text-align:center; color:#333; font-size: 48px; margin-bottom: 10px;">📚 Phonics Pro</h1>
             <p style="text-align:center; color:#888; margin-bottom: 30px;">今日目标：<b id="daily-target" style="color:var(--primary)">0</b> 词</p>
             
-            <!-- 🎨 调色盘 -->
             <div class="theme-selector">
                 <div class="color-dot active" style="background:#f5f7fa" onclick="App.setTheme('#f5f7fa', this)" title="护眼蓝"></div>
                 <div class="color-dot" style="background:#f3e8ff" onclick="App.setTheme('#f3e8ff', this)" title="淡雅紫"></div>
@@ -163,11 +154,9 @@
                 <button class="menu-btn" style="border:2px solid #ddd; background:white;" onclick="App.switchView('import')">📂 导入新词</button>
             </div>
 
-            <!-- 数据管理 -->
             <div class="data-management">
                 <button class="data-btn" onclick="DataManager.exportData()">⬇️ 备份进度</button>
                 <button class="data-btn" onclick="document.getElementById('backup-input').click()">⬆️ 恢复进度</button>
-                <!-- 新增：导出错题TXT -->
                 <button class="data-btn" style="border-color:var(--primary); color:var(--primary)" onclick="DataManager.exportMistakesTxt()">📄 导出错题本(TXT)</button>
                 <button class="data-btn btn-reset" onclick="DataManager.resetData()">🗑️ 清空重置</button>
                 <input type="file" id="backup-input" hidden accept=".json" onchange="DataManager.importData(this.files[0])">
@@ -207,16 +196,13 @@
     </div>
 
     <script>
-        const DICT = {"apple":"苹果","banana":"香蕉","cat":"猫","dog":"狗","elephant":"大象","fish":"鱼","girl":"女孩","hello":"你好","ice":"冰","juice":"果汁","kite":"风筝","lion":"狮子","monkey":"猴子","nose":"鼻子","orange":"橙子","pig":"猪","queen":"女王","rabbit":"兔子","sun":"太阳","tiger":"老虎","umbrella":"雨伞","van":"货车","water":"水","box":"盒子","yellow":"黄色","zoo":"动物园","welcome":"欢迎","student":"学生","teacher":"老师","school":"学校","pizza":"披萨","hamburger":"汉堡","computer":"电脑","friend":"朋友"};
-
         const DB = {
-            key: 'phonics_pro_v19_beautiful',
+            key: 'phonics_pro_v20_test',
             data: { lib: [], config: { planDays: 21, bgColor: '#f5f7fa' } },
             load() { 
                 const r = localStorage.getItem(this.key); 
                 if(r) {
                     this.data = JSON.parse(r);
-                    // 兼容旧数据：确保 config 存在
                     if(!this.data.config) this.data.config = { planDays: 21, bgColor: '#f5f7fa' };
                 }
             },
@@ -225,16 +211,16 @@
                 let c = 0;
                 list.forEach(i => {
                     if(!this.data.lib.find(w=>w.word===i.word)) {
-                        let trans = i.trans || DICT[i.word] || "暂无释义";
+                        // 纯净模式：没有默认词库，只用导入的翻译
+                        let trans = i.trans || "暂无释义";
                         const finalChunks = i.chunks || this.split(i.word);
-                        // 新增 allTimeErr 字段
                         this.data.lib.push({ 
                             word: i.word, 
                             trans: trans, 
                             chunks: finalChunks, 
                             status: 0, 
                             err: 0, 
-                            allTimeErr: 0 // 永久错题计数
+                            allTimeErr: 0
                         });
                         c++;
                     }
@@ -249,17 +235,10 @@
                 const blob = new Blob([JSON.stringify(DB.data)], {type: "application/json"});
                 this.download(blob, `phonics_full_backup.json`);
             },
-            // 核心新增：导出错题本 TXT
             exportMistakesTxt() {
-                // 筛选历史错题 (allTimeErr > 0)
                 const mistakes = DB.data.lib.filter(w => (w.allTimeErr || 0) > 0);
-                if(mistakes.length === 0) return alert("👍 太棒了！目前没有历史错题记录。");
-                
-                // 格式化：word chunks trans
-                const txtContent = mistakes.map(item => {
-                    return `${item.word} ${item.chunks.join('/')} ${item.trans}`;
-                }).join('\n');
-
+                if(mistakes.length === 0) return alert("👍 目前没有历史错题记录。");
+                const txtContent = mistakes.map(item => `${item.word} ${item.chunks.join('/')} ${item.trans}`).join('\n');
                 const blob = new Blob([txtContent], {type: "text/plain"});
                 this.download(blob, `wrong_words_list.txt`);
             },
@@ -427,13 +406,11 @@
             triggerError(wrapper) {
                 wrapper.classList.add('error'); this.speak('Try again');
                 this.currentWordHasError = true; 
-                
-                // 核心逻辑：错误立即计入 allTimeErr
                 const dbItem = DB.data.lib.find(w => w.word === this.queue[this.idx].word);
                 if(dbItem) {
-                    dbItem.err++; // 循环错题本
+                    dbItem.err++; 
                     if(!dbItem.allTimeErr) dbItem.allTimeErr = 0;
-                    dbItem.allTimeErr++; // 永久历史错题
+                    dbItem.allTimeErr++;
                 }
                 DB.save();
                 setTimeout(() => { this.step = 1; this.render(); }, 1000);
@@ -442,7 +419,6 @@
             saveResult(data) {
                 const dbItem = DB.data.lib.find(w => w.word === data.word);
                 if(!dbItem) return;
-                // 只有在复习模式，且本次没有错误，才消除循环错题
                 if (this.mode === 'review' && !this.currentWordHasError) {
                     if(dbItem.err > 0) dbItem.err--;
                 }
@@ -465,7 +441,6 @@
                 window.speechSynthesis.cancel();
                 const u = new SpeechSynthesisUtterance(t);
                 u.lang = 'en-US';
-                // 尝试找 Google 或 Microsoft 语音
                 const voices = window.speechSynthesis.getVoices();
                 const betterVoice = voices.find(v => v.name.includes("Google US")) || voices.find(v => v.name.includes("Zira"));
                 if(betterVoice) u.voice = betterVoice;
@@ -483,7 +458,6 @@
                     if(document.getElementById('view-dashboard').classList.contains('active') && e.key === 'Enter') { App.start('daily'); }
                 });
             },
-            // 换肤逻辑
             setTheme(color, el) {
                 this.applyTheme(color);
                 document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
@@ -497,12 +471,9 @@
             switchView(id) { document.querySelectorAll('.view-section').forEach(e=>e.classList.remove('active')); document.getElementById('view-'+id).classList.add('active'); this.updateUI(); },
             updateUI() {
                 const l = DB.data.lib;
-                const allTimeMistakes = l.filter(w => (w.allTimeErr || 0) > 0).length; // 统计历史错题
-                
                 document.getElementById('stat-total').innerText = l.length;
                 document.getElementById('stat-learned').innerText = l.filter(w=>w.status==1).length;
                 document.getElementById('stat-remain').innerText = l.filter(w=>w.status==0).length;
-                // 显示循环错题，但提示历史错题数量
                 document.getElementById('stat-mistakes').innerText = l.filter(w=>w.err>0).length;
                 document.getElementById('daily-target').innerText = Math.ceil(l.filter(w=>w.status==0).length / DB.data.config.planDays) || 0;
             },
@@ -520,7 +491,7 @@
                     const rnd = document.getElementById('learn-order').value==='random';
                     list = rnd ? pool.sort(()=>0.5-Math.random()).slice(0,c) : pool.slice(0,c);
                 } else {
-                    list = l.filter(w=>w.err>0); // 复习只针对当前需要纠错的词
+                    list = l.filter(w=>w.err>0); 
                     if(!list.length) return alert("太棒了！循环错题已全部消灭。\n\n(历史错题可导出TXT复习)");
                 }
                 App.switchView('practice'); Practice.start(list, mode);
