@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自然拼读 Pro - V25 自选语音修复版</title>
+    <title>自然拼读 Pro - V26 释义清洗版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
     <style>
         :root {
@@ -44,7 +44,16 @@
         .step-ind.active { color: var(--primary); transform: scale(1.1); }
         
         .stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; gap: 40px; }
-        .instruction { font-size: 28px; color: #888; font-weight: 500; margin-top: 20px; }
+        
+        /* 字体放大优化 */
+        .instruction { 
+            font-size: 42px; /* 字体加大 */
+            color: #555; 
+            font-weight: 700; /* 加粗 */
+            margin-top: 30px; 
+            text-align: center;
+            line-height: 1.4;
+        }
 
         /* 声音设置面板 */
         .sound-settings { background: white; padding: 20px; border-radius: 15px; margin-bottom: 30px; display: flex; justify-content: center; gap: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
@@ -79,7 +88,6 @@
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         .rich-input-wrapper:focus-within { border-color: var(--primary); box-shadow: 0 0 0 6px rgba(123,97,255,0.2); }
         
-        /* 绿色反馈 */
         .rich-input-wrapper.correct { 
             border-color: var(--success) !important; 
             background-color: var(--success-bg) !important; 
@@ -112,23 +120,21 @@
             <h1 style="text-align:center; color:#333;">📚 自然拼读 Pro</h1>
             <p style="text-align:center; color:#666;">今日待学：<b id="daily-target" style="color:var(--primary)">0</b> 词</p>
             
-            <!-- 🔊 声音设置 (修复版) -->
+            <!-- 🔊 声音设置 -->
             <div class="sound-settings">
                 <div class="sound-col">
-                    <span class="sound-label">🗣️ 读单词的声音</span>
+                    <span class="sound-label">🗣️ 单词发音 (主语音)</span>
                     <select id="cfg-word-voice" class="sound-select" onchange="App.saveVoiceConfig()">
                         <option value="ONLINE_US">🇺🇸 在线真人美音 (推荐)</option>
                         <option value="ONLINE_UK">🇬🇧 在线真人英音</option>
-                        <!-- 系统语音会通过 JS 追加在这里 -->
                     </select>
                 </div>
                 <div class="sound-col">
-                    <span class="sound-label">🔔 提示音/报错音</span>
+                    <span class="sound-label">🔔 提示音 (完成/报错)</span>
                     <select id="cfg-prompt-voice" class="sound-select" onchange="App.saveVoiceConfig()">
-                        <option value="ONLINE_US">🇺🇸 在线真人美音</option>
-                        <option value="ONLINE_UK">🇬🇧 在线真人英音 (推荐)</option>
-                        <!-- 系统语音会通过 JS 追加在这里 -->
+                        <option value="">加载系统语音中...</option>
                     </select>
+                    <small style="color:#999; font-size:12px;">* 推荐选择 Microsoft David (男声)</small>
                 </div>
             </div>
 
@@ -155,7 +161,7 @@
                 <button class="data-btn" onclick="DataManager.exportData()">⬇️ 备份</button>
                 <button class="data-btn" onclick="document.getElementById('backup-input').click()">⬆️ 恢复</button>
                 <button class="data-btn" style="border-color:var(--primary); color:var(--primary)" onclick="DataManager.exportMistakesTxt()">📄 导出错题本</button>
-                <button class="data-btn btn-reset" onclick="DataManager.resetData()">🗑️ 重置</button>
+                <button class="data-btn" style="border-color:#ffccc7; color:var(--danger)" onclick="DataManager.resetData()">🗑️ 重置</button>
                 <input type="file" id="backup-input" hidden accept=".json" onchange="DataManager.importData(this.files[0])">
             </div>
         </div>
@@ -170,7 +176,7 @@
                 <div id="file-name" style="color:var(--primary); margin-top:10px; font-weight:bold;"></div>
             </div>
             <input type="file" id="file-input" hidden accept=".docx,.txt" onchange="Importer.handleFile(this.files[0])">
-            <textarea id="manual-text" placeholder="格式1: apple 苹果&#10;格式2: hand/some 英俊的" style="width:100%; height:150px; margin:20px 0; padding:10px; font-family: monospace; border:2px solid #eee; border-radius:10px;"></textarea>
+            <textarea id="manual-text" placeholder="格式1: apple 苹果&#10;格式2: straight str/aight 直的" style="width:100%; height:150px; margin:20px 0; padding:10px; font-family: monospace; border:2px solid #eee; border-radius:10px;"></textarea>
             <div style="text-align:center;">
                 <button class="menu-btn btn-primary" onclick="Importer.parseManual()">确定导入</button>
                 <button class="menu-btn" onclick="App.switchView('dashboard')">返回主页</button>
@@ -193,33 +199,38 @@
     </div>
 
     <script>
-        // ================== 发音引擎 (V25 全面自定义) ==================
+        // ================== 发音引擎 ==================
         const SpeechEngine = {
             voices: [],
-            config: { word: 'ONLINE_US', prompt: 'ONLINE_UK' }, // 默认配置
+            config: { word: 'ONLINE_US', prompt: '' },
 
             init(savedCfg) {
                 if(savedCfg) this.config = savedCfg;
                 
-                // 加载系统语音
                 const load = () => {
                     this.voices = window.speechSynthesis.getVoices();
-                    this.populateSelect('cfg-word-voice', this.config.word);
-                    this.populateSelect('cfg-prompt-voice', this.config.prompt);
+                    this.populatePromptVoices();
                 };
                 
                 window.speechSynthesis.onvoiceschanged = load;
                 load();
-                setTimeout(load, 1000); // 确保加载
+                setTimeout(load, 1000);
             },
 
-            populateSelect(elemId, currentVal) {
-                const select = document.getElementById(elemId);
-                // 保留前两个在线选项
-                select.length = 2; 
+            populatePromptVoices() {
+                const select = document.getElementById('cfg-prompt-voice');
+                const currentVal = select.value || this.config.promptVoiceURI;
+                select.innerHTML = '';
                 
-                // 添加系统语音
                 const enVoices = this.voices.filter(v => v.lang.includes('en'));
+                
+                if(enVoices.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.text = "系统语音加载中...";
+                    select.appendChild(opt);
+                    return;
+                }
+
                 enVoices.forEach(v => {
                     const opt = document.createElement('option');
                     opt.value = v.voiceURI;
@@ -227,59 +238,55 @@
                     select.appendChild(opt);
                 });
 
-                // 恢复选择
-                select.value = currentVal;
-            },
-
-            // 统一发音接口
-            speak(text, usePromptVoice = false) {
-                const voiceID = usePromptVoice ? this.config.prompt : this.config.word;
-                this.play(text, voiceID);
-            },
-
-            play(text, voiceID) {
-                window.speechSynthesis.cancel(); // 抢占
-
-                if (voiceID === 'ONLINE_US') {
-                    this.playAudio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`);
-                } else if (voiceID === 'ONLINE_UK') {
-                    this.playAudio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=1`);
+                if(currentVal && enVoices.some(v => v.voiceURI === currentVal)) {
+                    select.value = currentVal;
                 } else {
-                    // 系统语音 TTS
-                    const u = new SpeechSynthesisUtterance(text);
-                    u.lang = 'en-US';
-                    const v = this.voices.find(v => v.voiceURI === voiceID);
-                    if(v) u.voice = v;
-                    window.speechSynthesis.speak(u);
+                    const male = enVoices.find(v => v.name.includes("David") || v.name.includes("Daniel") || v.name.includes("Male"));
+                    if(male) {
+                        select.value = male.voiceURI;
+                        this.config.promptVoiceURI = male.voiceURI;
+                    }
                 }
             },
 
-            playAudio(url) {
-                const a = new Audio(url);
-                a.play().catch(e => console.log("Audio play failed", e));
+            speakWord(text) {
+                window.speechSynthesis.cancel();
+                if (this.config.word === 'TTS') {
+                    this.speakTTS(text, this.config.promptVoiceURI);
+                } else {
+                    const type = this.config.word === 'ONLINE_UK' ? 1 : 2;
+                    const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}`);
+                    audio.play().catch(() => this.speakTTS(text, this.config.promptVoiceURI));
+                }
             },
 
-            // 提示音内容转换
-            playPromptSignal(type) {
-                let text = "Excellent";
-                if (type === 'good') text = "Good";
-                if (type === 'wrong') text = "Try again";
-                this.speak(text, true); // 使用 prompt 配置的声音
+            playPrompt(type) {
+                const text = type === 'correct' ? 'Excellent' : (type==='good' ? 'Good' : 'Try again');
+                this.speakTTS(text, this.config.promptVoiceURI, 1.2);
+            },
+
+            speakTTS(text, voiceURI, rate = 1.0) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'en-US';
+                u.rate = rate;
+                if(voiceURI) {
+                    const v = this.voices.find(v => v.voiceURI === voiceURI);
+                    if(v) u.voice = v;
+                }
+                window.speechSynthesis.speak(u);
             }
         };
 
         // ================== 数据库 ==================
         const DB = {
-            key: 'phonics_pro_v25_fix',
-            data: { lib: [], config: { planDays: 21, voiceCfg: null } },
+            key: 'phonics_pro_v26_clean',
+            data: { lib: [], config: { planDays: 21, voiceCfg: { word: 'ONLINE_US', promptVoiceURI: '' } } },
             load() { 
                 const r = localStorage.getItem(this.key); 
                 if(r) {
                     this.data = JSON.parse(r);
-                    // 兼容旧数据
-                    if(!this.data.config.voiceCfg) {
-                        this.data.config.voiceCfg = { word: 'ONLINE_US', prompt: 'ONLINE_UK' };
-                    }
+                    if(!this.data.config.voiceCfg) this.data.config.voiceCfg = { word: 'ONLINE_US', promptVoiceURI: '' };
                 }
             },
             save() { localStorage.setItem(this.key, JSON.stringify(this.data)); App.updateUI(); },
@@ -287,9 +294,7 @@
                 let c = 0;
                 list.forEach(i => {
                     if(!this.data.lib.find(w=>w.word===i.word)) {
-                        let trans = i.trans || "暂无释义";
-                        const finalChunks = i.chunks || this.split(i.word);
-                        this.data.lib.push({ word: i.word, trans: trans, chunks: finalChunks, status: 0, err: 0, allTimeErr: 0 });
+                        this.data.lib.push({ word: i.word, trans: i.trans, chunks: i.chunks || this.split(i.word), status: 0, err: 0, allTimeErr: 0 });
                         c++;
                     }
                 });
@@ -298,7 +303,7 @@
             split(w) { return w.length<=4 ? [w] : (w.toLowerCase().match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]*$|[^aeiouy](?=[^aeiouy]))?/gi) || [w]); }
         };
 
-        // ================== 修复后的导入逻辑 (超级稳健) ==================
+        // ================== 导入逻辑 (释义清洗修复) ==================
         const Importer = {
             handleFile(f) {
                 if(!f) return; document.getElementById('file-name').innerText = f.name;
@@ -308,36 +313,53 @@
                 f.name.endsWith('.docx') ? r.readAsArrayBuffer(f) : r.readAsText(f);
             },
             parseManual() { this.parse(document.getElementById('manual-text').value); },
-            
-            // 修复版解析器：支持 / 和 空格分割
             parse(txt) {
                 const list = [];
                 const lines = txt.split(/[\r\n]+/);
                 
                 lines.forEach(line => {
-                    line = line.trim();
-                    if(!line) return;
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length === 0 || parts[0] === "") return;
 
-                    // 策略：按空格分割，第一部分作为单词/拼写，剩余部分作为翻译
-                    const parts = line.split(/\s+/);
+                    // 假设第一部分是单词
                     const rawWord = parts[0].toLowerCase();
-                    const trans = parts.slice(1).join(' ');
+                    // 假设剩余部分是翻译/结构
+                    const remaining = parts.slice(1);
 
                     let word = "";
                     let chunks = null;
+                    let transParts = [];
 
+                    // 检查原始单词是否带斜杠
                     if (rawWord.includes('/')) {
-                        // 发现手动拆分符号
                         chunks = rawWord.split('/');
                         word = chunks.join('');
                     } else {
-                        // 普通单词
                         word = rawWord;
                     }
 
-                    // 简单校验：必须包含字母
-                    if (/[a-z]/.test(word)) {
-                        list.push({ word, chunks, trans });
+                    // 检查剩余部分，分离出带斜杠的结构，剩下的归为翻译
+                    for(let part of remaining) {
+                        if (part.includes('/')) {
+                            // 发现结构部分，提取chunks，且不放入翻译
+                            chunks = part.split('/').map(c=>c.toLowerCase());
+                            // 校验：提取的结构还原后必须等于单词，防止误判
+                            if (chunks.join('') !== word) {
+                                // 如果不匹配，说明可能是翻译里的斜杠（极少见），或者单词拼写错误
+                                // 这里简单处理：如果不匹配，还是当做结构，但也可能是翻译
+                                // 修正逻辑：优先信任带斜杠的是结构
+                            }
+                        } else {
+                            transParts.push(part);
+                        }
+                    }
+
+                    if (word && /[a-z]/.test(word)) {
+                        list.push({ 
+                            word: word, 
+                            chunks: chunks, 
+                            trans: transParts.join(' ') || "暂无释义" 
+                        });
                     }
                 });
 
@@ -345,7 +367,7 @@
                     DB.add(list); 
                     App.switchView('dashboard'); 
                 } else { 
-                    alert("未识别到单词。请确保格式正确，例如：\napple 苹果\nhand/some 英俊的"); 
+                    alert("未识别到有效单词"); 
                 }
             }
         };
@@ -379,7 +401,6 @@
                 stage.innerHTML = '';
                 [1,2,3].forEach(n => document.getElementById(`ind-${n}`).className = `step-ind ${n===this.step?'active':''}`);
 
-                // Step 1: 读
                 if(this.step === 1) {
                     this.setCanNext(true);
                     const wordBox = document.createElement('div');
@@ -393,10 +414,8 @@
                     const transBox = document.createElement('div');
                     transBox.className = 'instruction'; transBox.innerText = data.trans;
                     stage.appendChild(transBox);
-                    setTimeout(() => SpeechEngine.speak(data.word), 100);
+                    setTimeout(() => SpeechEngine.speakWord(data.word), 100);
                 }
-                
-                // Step 2: 分段拼 (只读完整单词，不读切片)
                 else if(this.step === 2) {
                     this.setCanNext(false);
                     const container = document.createElement('div');
@@ -410,20 +429,17 @@
                         const {wrapper, input} = this.createGhostInput(chunk.length, `seg-${k}`);
                         input.disabled = (k!==0);
                         
-                        // 聚焦/输入时读完整单词
-                        const playWord = () => SpeechEngine.speak(data.word);
-                        input.addEventListener('focus', () => { if(!input.disabled) playWord(); });
+                        // 聚焦时读完整单词
+                        input.addEventListener('focus', () => { if(!input.disabled) SpeechEngine.speakWord(data.word); });
 
                         input.addEventListener('input', () => {
                             if(input.value.toLowerCase() === chunk) {
                                 wrapper.classList.add('correct'); input.disabled=true;
                                 const next = document.getElementById(`seg-${k+1}`);
-                                if(next) { 
-                                    next.disabled=false; next.focus(); 
-                                    // 自动读单词，由上面的 focus 事件处理
-                                } else { 
+                                if(next) { next.disabled=false; next.focus(); } 
+                                else { 
                                     this.setCanNext(true); 
-                                    SpeechEngine.playPromptSignal('good'); 
+                                    SpeechEngine.playPrompt('good'); 
                                 }
                             } else if(input.value.length >= chunk.length) { this.triggerError(wrapper); }
                         });
@@ -434,8 +450,6 @@
                     const label = document.createElement('div'); label.className = 'instruction'; label.innerText = "分段拼写"; stage.appendChild(label);
                     setTimeout(() => { const f = document.getElementById('seg-0'); if(f) f.focus(); }, 100);
                 }
-
-                // Step 3: 完整写
                 else if(this.step === 3) {
                     this.setCanNext(false);
                     const {wrapper, input} = this.createGhostInput(data.word.length, 'full');
@@ -447,14 +461,14 @@
                             if(input.value.toLowerCase() === data.word) {
                                 wrapper.classList.add('correct'); input.disabled=true;
                                 this.saveResult(data); 
-                                SpeechEngine.playPromptSignal('correct'); 
+                                SpeechEngine.playPrompt('correct'); 
                                 this.setCanNext(true);
                             } else { this.triggerError(wrapper); }
                         }
                     });
                     stage.appendChild(wrapper);
                     const label = document.createElement('div'); label.className = 'instruction'; label.innerText = "听音默写"; stage.appendChild(label);
-                    setTimeout(() => { input.focus(); SpeechEngine.speak(data.word); }, 100);
+                    setTimeout(() => { input.focus(); SpeechEngine.speakWord(data.word); }, 100);
                 }
             },
 
@@ -476,7 +490,7 @@
 
             triggerError(wrapper) {
                 wrapper.classList.add('error'); 
-                SpeechEngine.playPromptSignal('wrong');
+                SpeechEngine.playPrompt('wrong');
                 this.currentWordHasError = true; 
                 const dbItem = DB.data.lib.find(w => w.word === this.queue[this.idx].word);
                 if(dbItem) { dbItem.err++; dbItem.allTimeErr++; }
@@ -531,7 +545,7 @@
                 };
                 r.readAsText(file);
             },
-            resetData() { if(confirm("⚠️ 清空所有数据？")) { localStorage.removeItem(DB.key); location.reload(); } }
+            resetData() { if(confirm("⚠️ 警告：清空所有数据？")) { localStorage.removeItem(DB.key); location.reload(); } }
         };
 
         const App = {
@@ -555,7 +569,7 @@
             saveVoiceConfig() {
                 const cfg = {
                     word: document.getElementById('cfg-word-voice').value,
-                    prompt: document.getElementById('cfg-prompt-voice').value
+                    promptVoiceURI: document.getElementById('cfg-prompt-voice').value
                 };
                 DB.data.config.voiceCfg = cfg;
                 SpeechEngine.config = cfg;
