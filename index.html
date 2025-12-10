@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自然拼读 Pro - V26 释义修正版</title>
+    <title>自然拼读 Pro - V28 微软语音版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
     <style>
         :root {
@@ -44,15 +44,13 @@
         .step-ind.active { color: var(--primary); transform: scale(1.1); }
         
         .stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; gap: 40px; }
-        
-        /* 修改：中文释义字体调大 */
-        .instruction { font-size: 38px; color: #555; font-weight: bold; margin-top: 30px; letter-spacing: 1px; }
+        .instruction { font-size: 28px; color: #888; font-weight: 500; margin-top: 20px; }
 
         /* 声音设置面板 */
         .sound-settings { background: white; padding: 20px; border-radius: 15px; margin-bottom: 30px; display: flex; justify-content: center; gap: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         .sound-col { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
         .sound-label { font-size: 14px; font-weight: bold; color: #555; }
-        .sound-select { padding: 8px; border-radius: 8px; border: 1px solid #ccc; width: 260px; font-family: var(--font-main); font-size: 14px; }
+        .sound-select { padding: 8px; border-radius: 8px; border: 1px solid #ccc; width: 220px; font-family: var(--font-main); font-size: 14px; }
 
         /* 输入框 */
         .rich-input-wrapper { 
@@ -81,7 +79,6 @@
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         .rich-input-wrapper:focus-within { border-color: var(--primary); box-shadow: 0 0 0 6px rgba(123,97,255,0.2); }
         
-        /* 绿色反馈 */
         .rich-input-wrapper.correct { 
             border-color: var(--success) !important; 
             background-color: var(--success-bg) !important; 
@@ -114,22 +111,18 @@
             <h1 style="text-align:center; color:#333;">📚 自然拼读 Pro</h1>
             <p style="text-align:center; color:#666;">今日待学：<b id="daily-target" style="color:var(--primary)">0</b> 词</p>
             
-            <!-- 🔊 声音设置 -->
+            <!-- 🔊 声音设置 (精选列表) -->
             <div class="sound-settings">
                 <div class="sound-col">
-                    <span class="sound-label">🗣️ 单词发音 (主语音)</span>
-                    <select id="cfg-word-voice" class="sound-select" onchange="App.saveVoiceConfig()">
-                        <option value="ONLINE_US">🇺🇸 在线真人美音 (推荐)</option>
-                        <option value="ONLINE_UK">🇬🇧 在线真人英音</option>
-                        <!-- 系统语音会通过 JS 追加在这里 -->
+                    <span class="sound-label">🗣️ 读单词</span>
+                    <select id="cfg-word-voice" class="sound-select" onchange="App.previewVoice(this.value)">
+                        <option value="">加载中...</option>
                     </select>
                 </div>
                 <div class="sound-col">
-                    <span class="sound-label">🔔 提示音 (完成/报错)</span>
-                    <select id="cfg-prompt-voice" class="sound-select" onchange="App.saveVoiceConfig()">
-                        <option value="ONLINE_US">🇺🇸 在线真人美音</option>
-                        <option value="ONLINE_UK">🇬🇧 在线真人英音 (推荐)</option>
-                        <!-- 系统语音会通过 JS 追加在这里 -->
+                    <span class="sound-label">🔔 提示音</span>
+                    <select id="cfg-prompt-voice" class="sound-select" onchange="App.previewVoice(this.value)">
+                        <option value="">加载中...</option>
                     </select>
                 </div>
             </div>
@@ -195,80 +188,136 @@
     </div>
 
     <script>
-        // ================== 发音引擎 ==================
+        // ================== V28 语音引擎 (清洗排序版) ==================
         const SpeechEngine = {
             voices: [],
-            config: { word: 'ONLINE_US', prompt: 'ONLINE_UK' },
+            config: { word: null, prompt: null },
 
             init(savedCfg) {
                 if(savedCfg) this.config = savedCfg;
+                
                 const load = () => {
                     this.voices = window.speechSynthesis.getVoices();
                     this.populateSelect('cfg-word-voice', this.config.word);
                     this.populateSelect('cfg-prompt-voice', this.config.prompt);
                 };
-                window.speechSynthesis.onvoiceschanged = load;
+                
+                if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                    window.speechSynthesis.onvoiceschanged = load;
+                }
                 load();
-                setTimeout(load, 1000);
+                setTimeout(load, 1000); // 重试确保加载
             },
 
             populateSelect(elemId, currentVal) {
                 const select = document.getElementById(elemId);
-                select.length = 2; // 保留在线选项
-                const enVoices = this.voices.filter(v => v.lang.includes('en'));
-                enVoices.forEach(v => {
+                select.innerHTML = ''; // 清空所有旧选项
+
+                // 1. 过滤：只保留 en-US 和 en-GB
+                const validLangs = ['en-us', 'en-gb'];
+                let filtered = this.voices.filter(v => {
+                    const lang = v.lang.toLowerCase().replace('_', '-');
+                    const name = v.name.toLowerCase();
+                    const isTargetLang = validLangs.includes(lang);
+                    const isClean = !name.includes('multilingual') && !name.includes('india') && !name.includes('australia') && !name.includes('canada') && !name.includes('ireland');
+                    return isTargetLang && isClean;
+                });
+
+                // 2. 格式化 & 排序准备
+                let formatted = filtered.map(v => {
+                    let label = v.name;
+                    // 清洗名称
+                    label = label.replace(/^Microsoft\s/, '')
+                                 .replace(/\sOnline\s\(Natural\).*/, '')
+                                 .replace(/\s-\sEnglish.*/, '')
+                                 .replace(' English (United States)', '')
+                                 .replace(' English (United Kingdom)', '');
+                    
+                    const isUK = v.lang.toLowerCase().includes('gb') || label.includes('UK');
+                    const prefix = isUK ? 'UK' : 'US';
+                    
+                    return {
+                        originalObj: v,
+                        label: `${prefix} ${label}`,
+                        region: prefix // 用于排序
+                    };
+                });
+
+                // 3. 排序：UK在前, US在后, 内部按字母表
+                formatted.sort((a, b) => {
+                    if (a.region !== b.region) {
+                        return a.region === 'UK' ? -1 : 1;
+                    }
+                    return a.label.localeCompare(b.label);
+                });
+
+                // 4. 渲染
+                if(formatted.length === 0) {
                     const opt = document.createElement('option');
-                    opt.value = v.voiceURI;
-                    opt.text = `💻 系统: ${v.name}`;
+                    opt.text = "未找到英语语音";
+                    select.appendChild(opt);
+                    return;
+                }
+
+                formatted.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item.originalObj.voiceURI;
+                    opt.text = item.label;
                     select.appendChild(opt);
                 });
-                if(currentVal && (currentVal.startsWith('ONLINE') || enVoices.some(v => v.voiceURI === currentVal))) {
+
+                // 5. 恢复选择 (如果之前的选择在列表里)
+                if(currentVal && formatted.some(item => item.originalObj.voiceURI === currentVal)) {
                     select.value = currentVal;
+                } else if (formatted.length > 0) {
+                    // 默认选第一个 (UK的第一个)
+                    select.value = formatted[0].originalObj.voiceURI;
+                    // 如果是 wordVoice 且还没设置，更新 config
+                    if(elemId === 'cfg-word-voice' && !this.config.word) this.config.word = select.value;
+                    if(elemId === 'cfg-prompt-voice' && !this.config.prompt) this.config.prompt = select.value;
                 }
+            },
+
+            testVoice(voiceID) {
+                this.speakTTS("Hello", voiceID);
             },
 
             speak(text, usePromptVoice = false) {
                 const voiceID = usePromptVoice ? this.config.prompt : this.config.word;
-                this.play(text, voiceID);
+                this.speakTTS(text, voiceID);
             },
 
-            play(text, voiceID) {
+            speakTTS(text, voiceID) {
                 window.speechSynthesis.cancel();
-                if (voiceID === 'ONLINE_US') {
-                    this.playAudio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`);
-                } else if (voiceID === 'ONLINE_UK') {
-                    this.playAudio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=1`);
-                } else {
-                    const u = new SpeechSynthesisUtterance(text);
-                    u.lang = 'en-US';
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'en-US';
+                u.rate = 1.0;
+                if(voiceID) {
                     const v = this.voices.find(v => v.voiceURI === voiceID);
-                    if(v) u.voice = v;
-                    window.speechSynthesis.speak(u);
+                    if(v) { 
+                        u.voice = v; 
+                        // 修正语速：Edge Natural 语音语速偏快，稍微调慢点更自然
+                        if(v.name.includes("Online")) u.rate = 0.9;
+                    }
                 }
-            },
-
-            playAudio(url) {
-                const a = new Audio(url);
-                a.play().catch(e => console.log("Audio error", e));
+                window.speechSynthesis.speak(u);
             },
 
             playPrompt(type) {
                 const text = type === 'correct' ? 'Excellent' : (type==='good' ? 'Good' : 'Try again');
-                this.speak(text, true);
+                this.speak(text, true); 
             }
         };
 
         // ================== 数据库 ==================
         const DB = {
-            key: 'phonics_pro_v26_fix',
+            key: 'phonics_pro_v28_minimal',
             data: { lib: [], config: { planDays: 21, voiceCfg: null } },
             load() { 
                 const r = localStorage.getItem(this.key); 
                 if(r) {
                     this.data = JSON.parse(r);
-                    if(!this.data.config.voiceCfg) {
-                        this.data.config.voiceCfg = { word: 'ONLINE_US', prompt: 'ONLINE_UK' };
-                    }
+                    if(!this.data.config.voiceCfg) this.data.config.voiceCfg = { word: null, prompt: null };
                 }
             },
             save() { localStorage.setItem(this.key, JSON.stringify(this.data)); App.updateUI(); },
@@ -284,7 +333,7 @@
             }
         };
 
-        // ================== 修正版解析器 ==================
+        // ================== 解析器 ==================
         const Importer = {
             handleFile(f) {
                 if(!f) return; document.getElementById('file-name').innerText = f.name;
@@ -298,51 +347,32 @@
             parse(txt) {
                 const list = [];
                 const lines = txt.split(/[\r\n]+/);
-                
                 lines.forEach(line => {
                     line = line.trim();
                     if(!line) return;
-
-                    // 1. 按空白分割
                     const parts = line.split(/\s+/);
                     let word = "", chunks = null, trans = "";
-
-                    // 2. 查找包含 / 的部分，认定为 chunk
                     const splitPartIndex = parts.findIndex(p => p.includes('/'));
-
                     if(splitPartIndex !== -1) {
-                        // 找到了手动分段 (如 str/aight)
                         const splitStr = parts[splitPartIndex];
                         chunks = splitStr.split('/').map(c => c.toLowerCase());
                         word = chunks.join('');
-                        
-                        // 释义是除了 splitPart 和 纯单词 以外的所有部分
                         trans = parts.filter((p, i) => i !== splitPartIndex && p.toLowerCase() !== word).join(' ');
                     } else {
-                        // 没找到 /，按默认格式 (apple 苹果)
                         const rawWord = parts[0].toLowerCase();
                         if(/[a-z]/.test(rawWord)) {
                             word = rawWord;
-                            // 自动拆分逻辑在 DB.add 里没有了，这里必须手动生成默认拆分
-                            // 如果没有chunks，就在这里生成一个单元素的chunk
-                            // 注意：这里为了简化，先给一个默认值，后续逻辑如果为空可以补
                             chunks = word.length <= 4 ? [word] : (word.match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]*$|[^aeiouy](?=[^aeiouy]))?/gi) || [word]);
                             trans = parts.slice(1).join(' ');
                         }
                     }
-
                     if(word) {
                         if(!trans) trans = "暂无释义";
                         list.push({ word, chunks, trans });
                     }
                 });
-
-                if(list.length > 0) { 
-                    DB.add(list); 
-                    App.switchView('dashboard'); 
-                } else { 
-                    alert("未识别到单词。"); 
-                }
+                if(list.length > 0) { DB.add(list); App.switchView('dashboard'); } 
+                else { alert("未识别到单词。"); }
             }
         };
 
@@ -406,7 +436,6 @@
                         const {wrapper, input} = this.createGhostInput(chunk.length, `seg-${k}`);
                         input.disabled = (k!==0);
                         
-                        // 聚焦时读单词
                         input.addEventListener('focus', () => { if(!input.disabled) SpeechEngine.speak(data.word); });
 
                         input.addEventListener('input', () => {
@@ -503,19 +532,16 @@
         const DataManager = {
             exportData() {
                 const blob = new Blob([JSON.stringify(DB.data)], {type: "application/json"});
-                this.download(blob, `phonics_full_backup.json`);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `phonics_backup.json`; a.click();
             },
             exportMistakesTxt() {
                 const mistakes = DB.data.lib.filter(w => (w.allTimeErr || 0) > 0);
                 if(mistakes.length === 0) return alert("👍 没有历史错题");
                 const txtContent = mistakes.map(item => `${item.word} ${item.chunks.join('/')} ${item.trans}`).join('\n');
                 const blob = new Blob([txtContent], {type: "text/plain"});
-                this.download(blob, `wrong_words_list.txt`);
-            },
-            download(blob, filename) {
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-                URL.revokeObjectURL(url);
+                const a = document.createElement('a'); a.href = url; a.download = `mistakes.txt`; a.click();
             },
             importData(file) {
                 if(!file) return;
@@ -539,6 +565,20 @@
                     if(document.getElementById('view-dashboard').classList.contains('active') && e.key === 'Enter') { App.start('daily'); }
                 });
             },
+            // 新增：保存并试听
+            previewVoice(voiceVal) {
+                this.saveVoiceConfig();
+                SpeechEngine.testVoice(voiceVal);
+            },
+            saveVoiceConfig() {
+                const cfg = {
+                    word: document.getElementById('cfg-word-voice').value,
+                    prompt: document.getElementById('cfg-prompt-voice').value
+                };
+                DB.data.config.voiceCfg = cfg;
+                SpeechEngine.config = cfg;
+                DB.save();
+            },
             switchView(id) { document.querySelectorAll('.view-section').forEach(e=>e.classList.remove('active')); document.getElementById('view-'+id).classList.add('active'); this.updateUI(); },
             updateUI() {
                 const l = DB.data.lib;
@@ -549,15 +589,6 @@
                 document.getElementById('daily-target').innerText = Math.ceil(l.filter(w=>w.status==0).length / DB.data.config.planDays) || 0;
             },
             saveConfig() { DB.data.config.planDays = document.getElementById('plan-days').value; DB.save(); },
-            saveVoiceConfig() {
-                const cfg = {
-                    word: document.getElementById('cfg-word-voice').value,
-                    prompt: document.getElementById('cfg-prompt-voice').value
-                };
-                DB.data.config.voiceCfg = cfg;
-                SpeechEngine.config = cfg;
-                DB.save();
-            },
             start(mode) {
                 const l = DB.data.lib;
                 let list = [];
