@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自然拼读 Pro - V21 真人发音版</title>
+    <title>自然拼读 Pro - V22 真人双声版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
     
@@ -63,6 +63,7 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.08); cursor: text;
             transition: all 0.2s;
         }
+        /* 视觉层：透明 */
         .visual-layer { 
             font-family: var(--font-mono); font-size: 80px; font-weight: 800; 
             text-align: center; width: 100%; height: 100%; line-height: 160px; 
@@ -82,6 +83,7 @@
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         .rich-input-wrapper:focus-within { border-color: var(--primary); box-shadow: 0 0 0 6px rgba(123,97,255,0.2); }
         
+        /* 绿色反馈 */
         .rich-input-wrapper.correct { 
             border-color: var(--success) !important; 
             background-color: var(--success-bg) !important; 
@@ -97,6 +99,7 @@
         
         .enter-tip { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); color: #aaa; font-size: 16px; opacity: 0; transition: 0.3s; font-weight: bold; }
         .enter-tip.show { opacity: 1; }
+        
         .summary-card { background: white; padding: 50px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.1); animation: popIn 0.5s; }
         @keyframes popIn { from{transform:scale(0.8);opacity:0;} to{transform:scale(1);opacity:1;} }
         .drop-zone { border: 3px dashed #ccc; padding: 60px; background: white; border-radius: 20px; margin: 20px auto; max-width: 600px; cursor: pointer; text-align: center; transition: 0.3s; }
@@ -109,7 +112,7 @@
 
         /* 语音选择器 */
         .voice-select-container { margin: 10px auto; text-align: center; }
-        #voice-select { padding: 5px 10px; border-radius: 10px; border: 1px solid #ccc; max-width: 300px; font-family: var(--font-main); }
+        #voice-select { padding: 8px 15px; border-radius: 10px; border: 1px solid #ccc; max-width: 300px; font-family: var(--font-main); font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
@@ -129,10 +132,11 @@
 
             <!-- 语音选择器 -->
             <div class="voice-select-container">
-                <label style="font-size:14px; color:#666;">分段辅助语音：</label>
+                <label style="font-size:14px; color:#666; font-weight:bold;">🤖 分段发音(辅助)：</label>
                 <select id="voice-select" onchange="SpeechEngine.setVoice(this.value)">
-                    <option value="">加载中...</option>
+                    <option value="">正在检测语音包...</option>
                 </select>
+                <div style="font-size:12px; color:#999; margin-top:5px;">(注：完整单词和提示音使用真人录音)</div>
             </div>
 
             <div class="stats-grid">
@@ -199,59 +203,99 @@
     </div>
 
     <script>
-        // ================== 发音引擎 Pro ==================
+        // ================== 发音引擎 Pro (V22) ==================
         const SpeechEngine = {
             voices: [],
             selectedVoice: null,
+            
             init() {
-                const loadVoices = () => {
-                    this.voices = window.speechSynthesis.getVoices();
-                    const select = document.getElementById('voice-select');
-                    select.innerHTML = '';
-                    
-                    // 过滤出英语声音
-                    const enVoices = this.voices.filter(v => v.lang.includes('en'));
-                    
-                    enVoices.forEach(v => {
-                        const opt = document.createElement('option');
-                        opt.value = v.name;
-                        opt.text = `${v.name} (${v.lang})`;
-                        select.appendChild(opt);
-                    });
-
-                    // 自动选择优质声音 (Google > Microsoft > Apple > Default)
-                    const best = enVoices.find(v => v.name.includes("Google US")) || 
-                                 enVoices.find(v => v.name.includes("Microsoft Zira")) ||
-                                 enVoices.find(v => v.name.includes("Samantha")) || 
-                                 enVoices[0];
-                    
-                    if(best) {
-                        select.value = best.name;
-                        this.selectedVoice = best;
-                    }
-                };
-
-                window.speechSynthesis.onvoiceschanged = loadVoices;
-                loadVoices();
+                // 1. 尝试加载语音列表
+                this.loadVoices();
+                
+                // 2. 监听浏览器语音加载事件 (Chrome需要)
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = () => this.loadVoices();
+                }
+                
+                // 3. 强制重试机制 (解决部分浏览器加载慢导致列表为空)
+                setTimeout(() => { if(this.voices.length === 0) this.loadVoices(); }, 500);
+                setTimeout(() => { if(this.voices.length === 0) this.loadVoices(); }, 2000);
             },
+
+            loadVoices() {
+                this.voices = window.speechSynthesis.getVoices();
+                const select = document.getElementById('voice-select');
+                if(!select) return; // 还没渲染出来
+                
+                select.innerHTML = '';
+                
+                // 过滤英文
+                const enVoices = this.voices.filter(v => v.lang.includes('en'));
+                
+                if (enVoices.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.text = "暂无辅助语音 (将使用默认)";
+                    select.appendChild(opt);
+                    return;
+                }
+
+                enVoices.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v.name;
+                    opt.text = `${v.name} (${v.lang})`;
+                    select.appendChild(opt);
+                });
+
+                // 智能预选：Google > Microsoft > Apple > Default
+                const best = enVoices.find(v => v.name.includes("Google US")) || 
+                             enVoices.find(v => v.name.includes("Microsoft Zira")) ||
+                             enVoices.find(v => v.name.includes("Samantha")) || 
+                             enVoices[0];
+                
+                if(best) {
+                    select.value = best.name;
+                    this.selectedVoice = best;
+                }
+            },
+
             setVoice(name) {
                 this.selectedVoice = this.voices.find(v => v.name === name);
             },
-            speak(text, isChunk = false) {
-                window.speechSynthesis.cancel();
 
-                // 策略：如果是完整单词，优先尝试有道词典真人发音
+            // 核心发音方法
+            speak(text, isChunk = false) {
+                window.speechSynthesis.cancel(); // 抢占发音
+
                 if (!isChunk) {
-                    const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${text}&type=2`); // type=2 美音
-                    audio.play().catch(e => {
-                        // 如果播放失败（没网/报错），回退到 TTS
-                        this.tts(text, false);
-                    });
+                    // A. 完整单词 -> 有道美式真人 (Type 2)
+                    const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${text}&type=2`);
+                    audio.play().catch(e => this.tts(text, false)); // 失败回退TTS
                 } else {
-                    // 如果是分段，只能用 TTS
+                    // B. 分段/辅助 -> 浏览器TTS (用户可选)
                     this.tts(text, true);
                 }
             },
+
+            // 系统提示音 (真人)
+            playPrompt(type) {
+                window.speechSynthesis.cancel();
+                let url = "";
+                // 使用有道英式 (Type 1) 来区分提示音
+                if (type === 'correct') {
+                    // Excellent
+                    url = `https://dict.youdao.com/dictvoice?audio=Excellent&type=1`;
+                } else if (type === 'wrong') {
+                    // Try again
+                    url = `https://dict.youdao.com/dictvoice?audio=Try+again&type=1`;
+                } else if (type === 'good') {
+                    // Good
+                    url = `https://dict.youdao.com/dictvoice?audio=Good&type=1`;
+                }
+
+                const audio = new Audio(url);
+                audio.play().catch(e => this.tts(type === 'correct' ? 'Excellent' : 'Try again', false));
+            },
+
             tts(text, slow) {
                 const u = new SpeechSynthesisUtterance(text);
                 u.lang = 'en-US';
@@ -260,10 +304,14 @@
                 window.speechSynthesis.speak(u);
             }
         };
-        SpeechEngine.init();
+        
+        // 延迟初始化，等待DOM
+        setTimeout(() => SpeechEngine.init(), 100);
 
+
+        // ================== 数据库 ==================
         const DB = {
-            key: 'phonics_pro_v21_voice',
+            key: 'phonics_pro_v22_voice',
             data: { lib: [], config: { planDays: 21, bgColor: '#f5f7fa' } },
             load() { 
                 const r = localStorage.getItem(this.key); 
@@ -360,6 +408,10 @@
             queue: [], idx: 0, step: 1, canNext: false, mode: 'learning', currentWordHasError: false,
             start(list, mode) {
                 this.queue = list; this.idx = 0; this.mode = mode;
+                
+                // 再次确保语音加载
+                if(SpeechEngine.voices.length === 0) SpeechEngine.loadVoices();
+
                 this.loadWord(0); document.addEventListener('keydown', this.handleKey);
             },
             stop() { document.removeEventListener('keydown', this.handleKey); App.switchView('dashboard'); },
@@ -412,8 +464,13 @@
                             if(input.value.toLowerCase() === chunk) {
                                 wrapper.classList.add('correct'); input.disabled=true;
                                 const next = document.getElementById(`seg-${k+1}`);
-                                if(next) { next.disabled=false; next.focus(); SpeechEngine.speak(data.chunks[k+1], true); }
-                                else { this.setCanNext(true); SpeechEngine.speak('Good', true); }
+                                if(next) { 
+                                    next.disabled=false; next.focus(); 
+                                    SpeechEngine.speak(data.chunks[k+1], true); 
+                                } else { 
+                                    this.setCanNext(true); 
+                                    SpeechEngine.playPrompt('good'); // 真人提示音
+                                }
                             } else if(input.value.length >= chunk.length) { this.triggerError(wrapper); }
                         });
                         input.addEventListener('keydown', e => { if(e.key==='Enter') e.preventDefault(); });
@@ -434,7 +491,7 @@
                             if(input.value.toLowerCase() === data.word) {
                                 wrapper.classList.add('correct'); input.disabled=true;
                                 this.saveResult(data); 
-                                SpeechEngine.speak('Excellent', true);
+                                SpeechEngine.playPrompt('correct'); // 真人提示音
                                 this.setCanNext(true);
                             } else { this.triggerError(wrapper); }
                         }
@@ -462,7 +519,8 @@
             },
 
             triggerError(wrapper) {
-                wrapper.classList.add('error'); SpeechEngine.speak('Try again', true);
+                wrapper.classList.add('error'); 
+                SpeechEngine.playPrompt('wrong'); // 真人提示音
                 this.currentWordHasError = true; 
                 const dbItem = DB.data.lib.find(w => w.word === this.queue[this.idx].word);
                 if(dbItem) {
@@ -471,7 +529,7 @@
                     dbItem.allTimeErr++;
                 }
                 DB.save();
-                setTimeout(() => { this.step = 1; this.render(); }, 1000);
+                setTimeout(() => { this.step = 1; this.render(); }, 1500); // 稍微延长时间听提示音
             },
 
             saveResult(data) {
